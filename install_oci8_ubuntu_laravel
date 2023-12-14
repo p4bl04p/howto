@@ -1,0 +1,162 @@
+# How to install OCI8 on Linux Mint 19.2 and PHP 7.3
+Sources:
+- http://www.syahzul.com/2016/04/06/how-to-install-oci8-on-ubuntu-14-04-and-php-5-6/
+- https://medium.com/@kabeza/setup-oracle-instant-client-with-apache-and-php-7-on-ubuntu-server-17-04-66cea2297d6f
+- https://gist.github.com/hewerthomn/81eea2935051eb2500941a9309bca703#file-install_oci8_ubuntu_16-04_php7-1-md
+- https://gist.github.com/Yukibashiri/cebaeaccbe531665a5704b1b34a3498e
+
+## Upgrade or install PHP 7.3
+### Step 1
+Add [Ondřej Surý PHP PPA](https://launchpad.net/~ondrej/+archive/ubuntu/php)
+
+```
+sudo add-apt-repository ppa:ondrej/php
+
+apt update && apt upgrade
+
+apt install php7.3-curl php7.3-gd php7.3-mysql php7.3-mbstring php7.3-cli php7.3-xml php7.3-zip
+```
+
+## Install Oracle Instant Client and SDK
+### Step 2
+
+Download the Oracle Instant Client and SDK from Oracle website.
+
+[https://www.oracle.com/database/technologies/instant-client/linux-x86-64-downloads.html](https://www.oracle.com/database/technologies/instant-client/linux-x86-64-downloads.html)
+
+Files: `instantclient-basic-linux.x64-19.5.0.0.0dbru.zip` and `instantclient-sdk-linux.x64-19.5.0.0.0dbru.zip`.
+
+### Step 3
+
+Create a new folder to store Oracle Instant Client zip files on your server.
+
+Upload the Instant Clients files inside this folder.
+
+```
+sudo mkdir /opt/oracle
+```
+
+### Step 4
+
+Now we need to extract the files.
+
+```
+cd /opt/oracle
+unzip instantclient-basic-linux.x64-12.2.0.1.0.zip
+unzip instantclient-sdk-linux.x64-12.2.0.1.0.zip
+```
+
+### Step 5
+
+Add the folder to our `ldconfig`.
+
+```
+sudo -s
+echo /opt/oracle/instantclient_19_5 > /etc/ld.so.conf.d/oracle-instantclient.conf
+```
+
+### Step 6
+
+Update the Dynamic Linker Run-Time Bindings
+
+```
+ldconfig
+```
+
+Done. Now we can proceed to the next part.
+
+
+## Install Additional Packages
+
+To install the OCI8 extension, we need to install some additional package on our server.
+
+### Step 1
+
+Run these command:
+
+```
+apt install php-dev php-pear build-essential libaio1
+```
+
+### Step 2
+
+Once installed, we need to get the OCI8 file.
+But, before that we need to update PECL channel.
+
+```
+pecl channel-update pecl.php.net
+
+```
+Then.
+
+```
+pecl install oci8
+```
+
+
+When you are prompted for the Instant Client location, enter the following:
+
+```
+instantclient,/opt/oracle/instantclient_19_5
+```
+
+### Step 3
+
+We need to tell PHP to load the OCI8 extension.
+
+```
+echo "extension = oci8.so" >> /etc/php/7.3/fpm/php.ini
+echo "extension = oci8.so" >> /etc/php/7.3/cli/php.ini
+echo "extension = oci8.so" >> /etc/php/7.3/apache2/php.ini
+
+```
+
+We also need to add on apache those environment variables.
+
+```
+echo "export LD_LIBRARY_PATH=/opt/oracle/instantclient_19_5" >> /etc/apache2/envvars
+echo "export ORACLE_HOME=/opt/oracle/instantclient_19_5" >> /etc/apache2/envvars
+echo "LD_LIBRARY_PATH=/opt/oracle/instantclient_19_5:$LD_LIBRARY_PATH" >> /etc/environment
+```
+
+### Step 4
+
+Refresh the server. If you are accessing through SSH, then
+```
+exit
+```
+or
+```
+sudo shutdown -r now
+```
+
+Check if the extension is enabled.
+
+```
+php -m | grep 'oci8'
+```
+
+If returns `oci8`, its works!
+
+### Step 5
+
+Restart the PHP-FPM
+
+```
+systemctl restart php7.3-fpm.service
+```
+
+### Test it out!
+
+Create a file containing the following codes.
+
+```
+if (function_exists('oci_connect')) {
+    echo 'OCI8 is working!';
+}
+else {
+    echo 'Whoopss...not working!';
+}
+```
+
+Now you can connect to Oracle DBMS from your PHP applications.
